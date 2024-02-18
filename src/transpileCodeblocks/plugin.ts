@@ -1,14 +1,14 @@
+import type { Plugin } from 'unified';
+import type { Node, Parent } from 'unist';
 import visit from 'unist-util-visit';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
+import type { VFile } from 'vfile';
 import { Compiler, CompilerSettings, TranspiledFile } from './compiler';
 import {
   postProcessTranspiledJs as defaultPostProcessTranspiledJs,
   postProcessTs as defaultPostProcessTs,
 } from './postProcessing';
-import type { Plugin } from 'unified';
-import type { Node, Parent } from 'unist';
-import type { VFile } from 'vfile';
 
 export interface VirtualFile {
   code: string;
@@ -27,7 +27,7 @@ type PostProcessor = (
   files: VirtualFiles,
   parentFile?: string,
   defaultProcessor?: PostProcessor
-) => VirtualFiles;
+) => Promise<VirtualFiles>;
 
 export interface Settings {
   compilerSettings: CompilerSettings;
@@ -39,13 +39,13 @@ export interface Settings {
 
 const compilers = new WeakMap<CompilerSettings, Compiler>();
 
-export const attacher: Plugin<[Settings]> = function ({
+export const attacher: Plugin<[Settings]> = ({
   compilerSettings,
   postProcessTranspiledJs = defaultPostProcessTranspiledJs,
   postProcessTs = defaultPostProcessTs,
   assembleReplacementNodes = defaultAssembleReplacementNodes,
   fileExtensions = ['.mdx'],
-}) {
+}) => {
   if (!compilers.has(compilerSettings)) {
     compilers.set(compilerSettings, new Compiler(compilerSettings));
   }
@@ -71,12 +71,14 @@ export const attacher: Plugin<[Settings]> = function ({
       if (!hasTabsImport) {
         node.children.unshift({
           type: 'import',
+          // @ts-ignore
           value: `import Tabs from '@theme/Tabs'`,
         });
       }
       if (!hasTabItemImport) {
         node.children.unshift({
           type: 'import',
+          // @ts-ignore
           value: `import TabItem from '@theme/TabItem'`,
         });
       }
@@ -84,7 +86,7 @@ export const attacher: Plugin<[Settings]> = function ({
 
     let codeBlock = 0;
 
-    return flatMap(tree, function mapper(node: CodeNode): Node[] {
+    return flatMap(tree, async function mapper(node: CodeNode): Promise<Node[]> {
       if (node.type === 'code') {
         codeBlock++;
       }
@@ -130,7 +132,7 @@ ${lines.slice(Math.max(0, diagnostic.line - 5), diagnostic.line + 6).join('\n')}
         }
       }
 
-      return assembleReplacementNodes(
+      return await assembleReplacementNodes(
         node,
         file,
         virtualFolder,
@@ -143,7 +145,7 @@ ${lines.slice(Math.max(0, diagnostic.line - 5), diagnostic.line + 6).join('\n')}
   };
 };
 
-export function defaultAssembleReplacementNodes(
+export async function defaultAssembleReplacementNodes(
   node: CodeNode,
   file: VFile,
   virtualFolder: string,
@@ -151,10 +153,11 @@ export function defaultAssembleReplacementNodes(
   transpilationResult: Record<string, TranspiledFile>,
   postProcessTs: PostProcessor,
   postProcessTranspiledJs: PostProcessor
-): Node[] {
+): Promise<Node[]> {
   return [
     {
       type: 'jsx',
+          // @ts-ignore
       value: `
     <Tabs
       groupId="language"
@@ -163,18 +166,20 @@ export function defaultAssembleReplacementNodes(
         { label: 'TypeScript', value: 'ts', },
         { label: 'JavaScript', value: 'js', },
       ]}
-    >        
+    >
         <TabItem value="ts">`,
     },
     {
       ...node,
+          // @ts-ignore
       value: rearrangeFiles(
-        postProcessTs(virtualFiles, file.path, defaultPostProcessTs),
+        await postProcessTs(virtualFiles, file.path, defaultPostProcessTs),
         virtualFolder
       ),
     },
     {
       type: 'jsx',
+          // @ts-ignore
       value: `
         </TabItem>
         <TabItem value="js">`,
@@ -185,8 +190,9 @@ export function defaultAssembleReplacementNodes(
       ...(typeof node.meta === 'string' && {
         meta: node.meta.replace(/(title=['"].*)\.t(sx?)(.*")/, '$1.j$2$3'),
       }),
+          // @ts-ignore
       value: rearrangeFiles(
-        postProcessTranspiledJs(
+        await postProcessTranspiledJs(
           transpilationResult,
           file.path,
           defaultPostProcessTranspiledJs
@@ -196,6 +202,7 @@ export function defaultAssembleReplacementNodes(
     },
     {
       type: 'jsx',
+          // @ts-ignore
       value: `
         </TabItem>
     </Tabs>`,
@@ -207,7 +214,7 @@ function splitFiles(fullCode: string, folder: string) {
   const regex = /^\/\/ file: ([\w\-./\[\]]+)(?: (.*))?\s*$/gm;
   let match = regex.exec(fullCode);
 
-  let files: VirtualFiles = {};
+  const files: VirtualFiles = {};
 
   do {
     const start = match ? match.index + match[0].length + 1 : 0;
@@ -233,7 +240,7 @@ function rearrangeFiles(files: VirtualFiles, folder: string) {
 
   return filteredFiles
     .map(
-      ([fileName, { code }]) => `// file: ${fileName.replace(folder + '/', '')}
+      ([fileName, { code }]) => `// file: ${fileName.replace(`${folder}/`, '')}
 ${code.trim()}`
     )
     .join('\n\n\n');

@@ -1,7 +1,7 @@
-import ts from 'typescript';
 import { normalize } from 'path';
+import ts from 'typescript';
 
-import { VirtualFiles, VirtualFile } from './plugin';
+import { VirtualFile, VirtualFiles } from './plugin';
 
 export type Diagnostic =
   | { line: number; character: number; message: string }

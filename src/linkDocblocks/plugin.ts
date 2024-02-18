@@ -1,13 +1,13 @@
+import type { Node, Parent } from 'unist';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
+import visit from 'unist-util-visit';
+import { URL } from 'url';
 import { Extractor, ExtractorSettings } from './extract';
 import { renderDocNode } from './utils';
-import { URL } from 'url';
-import type { Node, Parent } from 'unist';
-import visit from 'unist-util-visit';
 
-import type { Plugin } from 'unified';
 import type { DocNode } from '@microsoft/tsdoc';
+import type { Plugin } from 'unified';
 
 type Comment = NonNullable<ReturnType<Extractor['getComment']>>;
 type RenderFunction = (c: Comment) => import('unist').Node[];
@@ -119,7 +119,8 @@ export const attacher: Plugin<[Settings]> = function ({ extractorSettings }) {
       }, []);
 
       visit<
-        Node & { value: string }
+      Parent & { value: string }
+      // @ts-ignore
       >({ type: 'fakeRoot', children: retVal }, 'code', (node) => {
         node.value = node.value.trimEnd();
       });

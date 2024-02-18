@@ -1,13 +1,13 @@
-import { VirtualFiles } from './plugin';
 import prettier from 'prettier';
+import { VirtualFiles } from './plugin';
 
-export function postProcessTs(
+export async function postProcessTs(
   files: VirtualFiles,
   parentFile?: string
-): VirtualFiles {
-  return fromEntries(
-    Object.entries(files).map(([name, file]) => {
-      const prettyCode = prettify(file.code, name, parentFile || name);
+): Promise<VirtualFiles> {
+  return fromEntries(await Promise.all(
+    Object.entries(files).map(async ([name, file]) => {
+      const prettyCode = await prettify(file.code, name, parentFile || name);
 
       return [
         name,
@@ -15,22 +15,22 @@ export function postProcessTs(
           ...file,
           code: prettyCode.trim(),
         },
-      ];
+      ] as [string, { code: string; skip?: boolean | undefined; }];
     })
-  );
+  ));
 }
 
-export function postProcessTranspiledJs(
+export async function postProcessTranspiledJs(
   files: VirtualFiles,
   parentFile?: string
-): VirtualFiles {
-  return fromEntries(
-    Object.entries(files).map(([name, file]) => {
+): Promise<VirtualFiles> {
+  return fromEntries(await Promise.all(
+    Object.entries(files).map(async ([name, file]) => {
       const mangledCode = file.code.replace(
         /(\n\s*|)\/\/ (@ts-ignore|@ts-expect-error).*$/gm,
         ''
       );
-      const prettyCode = prettify(mangledCode, name, parentFile || name);
+      const prettyCode = await prettify(mangledCode, name, parentFile || name);
 
       return [
         name.replace(/.t(sx?)$/, '.j$1'),
@@ -38,9 +38,9 @@ export function postProcessTranspiledJs(
           ...file,
           code: prettyCode.trim(),
         },
-      ];
+      ] as [string, { code: string; skip?: boolean | undefined; }];
     })
-  );
+  ));
 }
 
 let lastConfig: prettier.Options | null;
@@ -52,9 +52,9 @@ let lastParentFile: string;
  * @param {string} fileName
  * @param {string} parentFile
  */
-function prettify(sourceCode: string, fileName: string, parentFile: string) {
+async function prettify(sourceCode: string, fileName: string, parentFile: string) {
   if (lastParentFile !== parentFile) {
-    lastConfig = prettier.resolveConfig.sync(parentFile);
+    lastConfig = await prettier.resolveConfig(parentFile);
   }
   if (!lastConfig) {
     console.error(
