@@ -20,11 +20,6 @@
   "peerDependencies": {
     "typescript": ">=4.0"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx test"
-    }
-  },
   "prettier": {
     "printWidth": 80,
     "semi": true,
