@@ -1,7 +1,7 @@
 import type { Node, Parent } from 'unist';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
-import visit from 'unist-util-visit';
+import { visit } from 'unist-util-visit';
 import { URL } from 'url';
 import { Extractor, ExtractorSettings } from './extract';
 import { renderDocNode } from './utils';
@@ -119,9 +119,10 @@ export const attacher: Plugin<[Settings]> = function ({ extractorSettings }) {
       }, []);
 
       visit<
-      Parent & { value: string }
+      Parent & { value: string }, undefined
       // @ts-ignore
       >({ type: 'fakeRoot', children: retVal }, 'code', (node) => {
+      // @ts-ignore
         node.value = node.value.trimEnd();
       });
 

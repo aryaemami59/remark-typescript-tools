@@ -40,7 +40,7 @@ export class Extractor {
       if (ts.isVariableStatement(child)) {
         found.push(...this.findTokens(token, child.declarationList));
         if (child.declarationList.declarations.length === 1) {
-          const name = child.declarationList.declarations[0].name;
+          const { name } = child.declarationList.declarations[0];
           if (name && ts.isIdentifier(name) && name.escapedText === lookFor) {
             // push the whole declarationList if it contains only one declaration, for "outside style"
             found.push(child);
@@ -49,7 +49,7 @@ export class Extractor {
         return;
       }
 
-      const name = child.name;
+      const { name } = child;
       if (name && ts.isIdentifier(name) && name.escapedText === lookFor) {
         if (lookFor === token) {
           if (ts.isVariableDeclaration(child) && child.initializer) {
@@ -122,7 +122,7 @@ export class Extractor {
     }
 
     const parserContext = tsdocParser.parseRange(selectedOverload.textRange);
-    const docComment = parserContext.docComment;
+    const { docComment } = parserContext;
     return Object.assign(docComment, {
       parserContext,
       buffer: selectedOverload.textRange.buffer,

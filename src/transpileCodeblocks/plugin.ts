@@ -1,6 +1,6 @@
 import type { Plugin } from 'unified';
 import type { Node, Parent } from 'unist';
-import visit from 'unist-util-visit';
+import { visit } from 'unist-util-visit';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
 import type { VFile } from 'vfile';
@@ -62,13 +62,29 @@ export const attacher: Plugin<[Settings]> = ({
     let hasTabsImport = false;
     let hasTabItemImport = false;
 
-    visit<Node & { value: string }>(tree, 'import', (node) => {
+    // const hasValue = (tree: Node): tree is Node & { value: string } => {
+    //   if (!('value' in tree) || (typeof tree.value !== 'string')) {
+    //     return true
+    //   }
+    //   return false
+    // }
+
+    // if (!hasValue(tree)) {
+    //   return
+    // }
+
+
+    visit(tree, 'import', (node) => {
+      // @ts-ignore
       if (/\bTabs\b/.test(node.value)) hasTabsImport = true;
+      // @ts-ignore
       if (/\bTabItem\b/.test(node.value)) hasTabItemImport = true;
     });
 
+      // @ts-ignore
     visit<Parent>(tree, 'root', (node) => {
       if (!hasTabsImport) {
+      // @ts-ignore
         node.children.unshift({
           type: 'import',
           // @ts-ignore
@@ -76,6 +92,7 @@ export const attacher: Plugin<[Settings]> = ({
         });
       }
       if (!hasTabItemImport) {
+      // @ts-ignore
         node.children.unshift({
           type: 'import',
           // @ts-ignore
