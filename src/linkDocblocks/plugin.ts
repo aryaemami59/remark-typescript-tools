@@ -1,14 +1,14 @@
+import { URL } from 'node:url';
+import type { Node, Parent } from 'mdast';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
-import { Extractor } from './extract.js';
-import type { ExtractorSettings } from './extract.js';
-import { renderDocNode } from './utils.js';
-import { URL } from 'node:url';
-import type { Node, Parent } from 'unist';
 import { visit } from 'unist-util-visit';
+import type { ExtractorSettings } from './extract.js';
+import { Extractor } from './extract.js';
+import { renderDocNode } from './utils.js';
 
-import type { Plugin } from 'unified';
 import type { DocNode } from '@microsoft/tsdoc';
+import type { Plugin } from 'unified';
 
 type Comment = NonNullable<ReturnType<Extractor['getComment']>>;
 type RenderFunction = (c: Comment) => import('unist').Node[];
@@ -33,8 +33,17 @@ export const linkDocblocks: Plugin<[LinkDocblocksSettings]> = function ({
   }
   const extractor = extractors.get(extractorSettings)!;
 
-  const parseNodes = (markdown: string): Node[] => {
-    return (this.parse(markdown) as Parent).children;
+  const parseNodes = (
+    markdown: Parameters<ThisParameterType<Plugin>['parse']>[0]
+  ): Node[] => {
+    const parsedNodes = this.parse(markdown);
+    return parsedNodes.children as Node[];
+    // console.log({ parsedNodes });
+    // return 'children' in parsedNodes
+    //   ? Array.isArray(parsedNodes.children)
+    //     ? (parsedNodes.children as Node[])
+    //     : ([parsedNodes.children] as Node[])
+    //   : [parsedNodes];
   };
 
   function renderAsMarkdown(

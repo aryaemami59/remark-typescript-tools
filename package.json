@@ -33,7 +33,7 @@
   "scripts": {
     "start": "tsup --watch",
     "build": "tsup",
-    "test": "yarn tsx --test test/linkDocblocks.test.ts",
+    "test": "yarn tsx --test test/*",
     "lint": "true",
     "prepare": "yarn build"
   },

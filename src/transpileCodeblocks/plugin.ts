@@ -1,18 +1,19 @@
+import type { ImportDeclaration } from 'estree';
+import type { MdxJsxFlowElement } from 'mdast-util-mdx-jsx';
+import type { MdxjsEsm } from 'mdast-util-mdxjs-esm';
+import type { Plugin } from 'unified';
+// import { Heading } from "mdast";
+import type { Code, Literal, Parent } from 'mdast';
 import { visit } from 'unist-util-visit';
 // @ts-ignore
 import flatMap from 'unist-util-flatmap';
-import { Compiler } from './compiler.js';
+import type { VFile } from 'vfile';
 import type { CompilerSettings, TranspiledFile } from './compiler.js';
+import { Compiler } from './compiler.js';
 import {
   defaultPostProcessTranspiledJs,
   defaultPostProcessTs,
 } from './postProcessing.js';
-import type { Plugin } from 'unified';
-import type { Node, Parent } from 'unist';
-import type { VFile } from 'vfile';
-import type { ImportDeclaration } from 'estree';
-import type { MdxjsEsm } from 'mdast-util-mdxjs-esm';
-import type { MdxJsxFlowElement } from 'mdast-util-mdx-jsx';
 
 export interface VirtualFile {
   code: string;
@@ -20,12 +21,14 @@ export interface VirtualFile {
 }
 export type VirtualFiles = Record<string, VirtualFile>;
 
-interface CodeNode extends Node {
-  lang: string;
-  meta: string | null;
-  value: string;
-  indent: number[];
-}
+// export interface CodeNode extends Node {
+//   type: 'code';
+//   lang: string;
+//   meta: string | null;
+//   value: string;
+//   indent: number[];
+//   children: CodeNode[];
+// }
 
 type PostProcessor = (
   files: VirtualFiles,
@@ -68,13 +71,14 @@ export const transpileCodeblocks: Plugin<[TranspileCodeblocksSettings]> =
       let hasTabsImport = false;
       let hasTabItemImport = false;
 
-      visit(tree, 'ImportDeclaration', (node: ImportDeclaration) => {
+      visit(tree, 'Import', (node: ImportDeclaration) => {
         if (
           node.source.value === '@theme/Tabs' &&
           node.specifiers.some(
             (sp) => sp.type === 'ImportSpecifier' && sp.local.name === 'Tabs'
           )
         ) {
+          console.log({ hasTabsImport });
           hasTabsImport = true;
         }
         if (
@@ -87,7 +91,7 @@ export const transpileCodeblocks: Plugin<[TranspileCodeblocksSettings]> =
         }
       });
 
-      visit(tree, 'root', (node: Parent) => {
+      visit(tree, 'root', (node: Parent & { children: Literal[] }) => {
         if (!hasTabsImport) {
           node.children.unshift({
             type: 'mdxjsEsm',
@@ -116,7 +120,7 @@ export const transpileCodeblocks: Plugin<[TranspileCodeblocksSettings]> =
                 sourceType: 'module',
               },
             },
-          } satisfies MdxjsEsm as MdxjsEsm);
+          } satisfies MdxjsEsm);
         }
         if (!hasTabItemImport) {
           node.children.unshift({
@@ -146,17 +150,23 @@ export const transpileCodeblocks: Plugin<[TranspileCodeblocksSettings]> =
                 sourceType: 'module',
               },
             },
-          } satisfies MdxjsEsm as MdxjsEsm);
+          } satisfies MdxjsEsm);
         }
       });
 
       let codeBlock = 0;
 
-      return flatMap(tree, function mapper(node: CodeNode) {
+      return flatMap(tree, function mapper(node: Code) {
         if (node.type === 'code') {
           codeBlock++;
         }
-        if (!(node.type === 'code' && ['ts', 'tsx'].includes(node.lang))) {
+        if (
+          !(
+            node.type === 'code' &&
+            // node.lang &&
+            ['ts', 'tsx'].includes(node.lang)
+          )
+        ) {
           return [node];
         }
         const tags = node.meta ? node.meta.split(' ') : [];
@@ -213,14 +223,14 @@ ${lines.slice(Math.max(0, diagnostic.line - 5), diagnostic.line + 6).join('\n')}
   };
 
 export async function defaultAssembleReplacementNodes(
-  node: CodeNode,
+  node: Code,
   file: VFile,
   virtualFolder: string,
   virtualFiles: Record<string, VirtualFile>,
   transpilationResult: Record<string, TranspiledFile>,
   postProcessTs: PostProcessor,
   postProcessTranspiledJs: PostProcessor
-): Promise<Node[]> {
+): Promise<MdxJsxFlowElement[]> {
   return [
     {
       type: 'mdxJsxFlowElement',
@@ -341,7 +351,7 @@ export async function defaultAssembleReplacementNodes(
                 ),
                 virtualFolder
               ),
-            } satisfies CodeNode as any,
+            } satisfies Code,
           ],
         },
         {
@@ -366,11 +376,11 @@ export async function defaultAssembleReplacementNodes(
                 ),
                 virtualFolder
               ),
-            } satisfies CodeNode as any,
+            } satisfies Code,
           ],
         },
       ],
-    } satisfies MdxJsxFlowElement as MdxJsxFlowElement,
+    } satisfies MdxJsxFlowElement,
   ];
 }
 
@@ -383,14 +393,20 @@ function splitFiles(fullCode: string, folder: string) {
   do {
     const start = match ? match.index + match[0].length + 1 : 0;
     const fileName = match ? match[1] : 'index.ts';
+    // console.log({fileName})
     const flags = (match ? match[2] || '' : '').split(' ');
+    // console.log({flags})
     const skip = flags.includes('noEmit');
+    if (skip) {
+      // console.log({fileName})
+    }
     match = regex.exec(fullCode);
     const end = match ? match.index : fullCode.length;
     const code = fullCode.substring(start, end);
     files[`${folder}/${fileName}`] = { code, skip };
   } while (match);
 
+  // console.log({files})
   return files;
 }
 
